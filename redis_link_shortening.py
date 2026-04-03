@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, jsonify
+from flask import Flask, request, redirect, jsonify, render_template
 from urllib.parse import urlparse
 import redis
 import random
@@ -132,17 +132,17 @@ def home():
 
         links_html += f"""
             <li>
-                <b><a href="{escape(short)}" target="_blank">{escape(short)}</a></b><br>
+                <b><a href=\"{escape(short)}\" target=\"_blank\">{escape(short)}</a></b><br>
                 → {escape(long_url)}<br>
-                <span class="visits-counter" data-code="{escape(code)}" data-max="{max_visits}">Переходы: {escape(visits_html)}</span><br>
-                <span class="countdown" data-expire-ts="{expire_ts}" style="font-weight:bold;">
+                <span class=\"visits-counter\" data-code=\"{escape(code)}\" data-max=\"{max_visits}\">Переходы: {escape(visits_html)}</span><br>
+                <span class=\"countdown\" data-expire-ts=\"{expire_ts}\" style=\"font-weight:bold;\">
                     Загрузка...
                 </span><br><br>
 
-                <form method="post" action="/delete/{escape(code)}" style="display:inline;">
-                    <button type="submit" onclick="return confirm('Удалить ссылку?')">Удалить</button>
+                <form method=\"post\" action=\"/delete/{escape(code)}\" style=\"display:inline;\">
+                    <button type=\"submit\" onclick=\"return confirm('Удалить ссылку?')\">Удалить</button>
                 </form>
-                <button onclick="navigator.clipboard.writeText('{escape(short)}'); alert('Скопировано!')">Копировать</button>
+                <button onclick=\"navigator.clipboard.writeText('{escape(short)}'); alert('Скопировано!')\">Копировать</button>
             </li><br>
         """
 
@@ -150,254 +150,13 @@ def home():
     if error_message:
         error_html = f'<p style="color: red; font-weight: bold; padding: 10px; background: #ffe6e6; border-radius: 6px;">{escape(error_message)}</p>'
 
-    return f"""
-            <!DOCTYPE html>
-            <html lang="ru">
-            <head>
-                <meta charset="UTF-8">
-                <title>Сокращатель ссылок</title>
-                <style>
-                    /* Глобальные настройки шрифта и фона */
-                    body {{
-                        font-family: Arial, sans-serif;
-                        background-color: #f4f7f6; /* Светло-серый фон сайта */
-                        color: #333333;           /* Темный цвет текста */
-                        margin: 0 auto;
-                        max-width: 900px;         /* Ширина контента */
-                        padding: 30px 20px;
-                    }}
-
-                    /* Заголовки */
-                    h1, h2 {{
-                        color: #2c3e50;           /* Темно-синий цвет заголовков */
-                    }}
-
-                    /* Карточки со ссылками */
-                    ol#links-list {{
-                        padding-left: 0;
-                    }}
-                    li {{
-                        background: #ffffff;      /* Белый фон для каждой ссылки */
-                        padding: 20px;
-                        margin-bottom: 15px;
-                        border-radius: 10px;      /* Скругленные углы */
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.05); /* Легкая тень */
-                        list-style-type: none;    /* Убираем стандартные цифры списка */
-                        border-left: 5px solid #0066ff; /* Синяя полоска слева */
-                    }}
-
-                    /* Ссылки */
-                    a {{
-                        color: #0066ff;
-                        text-decoration: none;
-                        font-size: 18px;
-                    }}
-                    a:hover {{
-                        text-decoration: underline;
-                    }}
-
-                    /* Общие стили для маленьких кнопок в списке */
-                    li button {{
-                        padding: 8px 16px;
-                        border: none;
-                        border-radius: 6px;
-                        cursor: pointer;
-                        font-family: Arial, sans-serif;
-                        font-weight: bold;
-                        margin-top: 10px;
-                        margin-right: 10px;
-                        transition: 0.2s;
-                    }}
-
-                    /* Кнопка "Удалить" */
-                    li form button {{
-                        background-color: #ffe0e0;
-                        color: #d32f2f;
-                    }}
-                    li form button:hover {{
-                        background-color: #ffcccc;
-                    }}
-
-                    /* Кнопка "Копировать" */
-                    li > button {{
-                        background-color: #e0f2f1;
-                        color: #00796b;
-                    }}
-                    li > button:hover {{
-                        background-color: #b2dfdb;
-                    }}
-
-                    /* Стили для формы создания ссылки */
-                    input, select, .main-btn {{
-                        font-family: Arial, sans-serif;
-                    }}
-
-                    /* Красное заблокированное поле ввода */
-                    input[name="long_url"].locked {{
-                        border-color: #ff4d4d !important;
-                        background-color: #fff2f2 !important;
-                        color: #d32f2f;
-                        cursor: not-allowed;
-                    }}
-                </style>
-            </head>
-            <body>
-                <h1>Механизм сокращения ссылок</h1>
-
-                {error_html}
-
-                <form method="post" style="max-width: 800px; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px;">
-                    <input type="text" name="long_url" id="long_url" placeholder="Вставь длинную ссылку" 
-                        style="width:100%; box-sizing:border-box; padding:14px; font-size:17px; margin-bottom:15px; border: 2px solid #e0e0e0; border-radius: 6px; outline: none;" required>
-
-                    <div style="display: flex; gap: 20px; margin-bottom: 20px;">
-                        <div style="flex: 1;">
-                            <label style="display:block; margin-bottom:6px; font-weight: bold; color: #555;">Время жизни:</label>
-                            <select name="ttl" style="padding:12px; font-size:16px; width:100%; border: 2px solid #e0e0e0; border-radius: 6px; outline: none;">
-                                <option value="60">1 минута</option>
-                                <option value="3600">1 час</option>
-                                <option value="86400" selected>1 день</option>
-                                <option value="604800">7 дней</option>
-                                <option value="2592000">30 дней</option>
-                            </select>
-                        </div>
-
-                        <div style="flex: 1;">
-                            <label style="display:block; margin-bottom:6px; font-weight: bold; color: #555;">Удалить после переходов:</label>
-                            <select name="max_visits" style="padding:12px; font-size:16px; width:100%; border: 2px solid #e0e0e0; border-radius: 6px; outline: none;">
-                                <option value="0" selected>Без ограничения</option>
-                                <option value="10">10 переходов</option>
-                                <option value="50">50 переходов</option>
-                                <option value="100">100 переходов</option>
-                                <option value="500">500 переходов</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <button type="submit" id="submit-btn" class="main-btn"
-                            style="padding:14px 32px; font-size:18px; font-weight:bold; background:#0066ff; color:white; border:none; border-radius:6px; cursor:pointer; width:100%; transition: background 0.2s;">
-                        Сократить ссылку
-                    </button>
-                </form>
-
-                <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                <h2>Все короткие ссылки (<span id="count">{len(all_links)}</span> шт.)</h2>
-                <ol id="links-list">{links_html}</ol>
-
-                <script>
-                    const escapeHtml = (unsafe) => {{
-                        return unsafe
-                            .replace(/&/g, "&amp;")
-                            .replace(/</g, "&lt;")
-                            .replace(/>/g, "&gt;")
-                            .replace(/"/g, "&quot;")
-                            .replace(/'/g, "&#039;");
-                    }};
-
-                    function refreshList() {{
-                        fetch('/api/links')
-                            .then(r => r.json())
-                            .then(links => {{
-                                let html = '';
-                                links.forEach(link => {{
-                                    const visits_html = link.max_visits > 0 
-                                        ? `${{link.visits}} / ${{link.max_visits}}` 
-                                        : `${{link.visits}} / ∞`;
-                                    
-                                    html += `
-                                        <li>
-                                            <b><a href="${{link.short}}" target="_blank">${{link.short}}</a></b><br><br>
-                                            <span style="color: #666;">→ ${{escapeHtml(link.long_url)}}</span><br><br>
-                                            <span class="visits-counter" data-code="${{link.code}}" data-max="${{link.max_visits}}" style="display:inline-block; margin-right: 15px; color: #555;">Переходы: <b>${{visits_html}}</b></span>
-                                            <span class="countdown" data-expire-ts="${{link.expire_ts}}" style="font-weight:bold; color: #d32f2f;">
-                                                ⏳ Загрузка...
-                                            </span><br>
-
-                                            <form method="post" action="/delete/${{link.code}}" style="display:inline;">
-                                                <button type="submit" onclick="return confirm('Удалить ссылку?')">Удалить</button>
-                                            </form>
-                                            <button onclick="navigator.clipboard.writeText('${{link.short}}'); alert('Скопировано!')">Копировать</button>
-                                        </li>
-                                    `;
-                                }});
-                                document.getElementById('links-list').innerHTML = html;
-                                document.getElementById('count').textContent = links.length;
-                                updateCountdowns();
-                            }})
-                            .catch(() => {{}});
-                    }}
-
-                    function updateCountdowns() {{
-                        document.querySelectorAll('.countdown').forEach(el => {{
-                            const expireTs = parseInt(el.dataset.expireTs || 0);
-                            if (!expireTs) return;
-
-                            let rem = expireTs - Math.floor(Date.now() / 1000);
-                            if (rem <= 0) {{
-                                const li = el.closest('li');
-                                if (li) li.remove();
-                                return;
-                            }}
-
-                            const d = Math.floor(rem / 86400); rem %= 86400;
-                            const h = Math.floor(rem / 3600); rem %= 3600;
-                            const m = Math.floor(rem / 60); const s = rem % 60;
-
-                            let txt = "⏳ Осталось: ";
-                            if (d) txt += d + "д ";
-                            if (h) txt += h + "ч ";
-                            if (m) txt += m + "м ";
-                            txt += s + "с";
-                            el.innerHTML = txt;
-                        }});
-                    }}
-
-                    // === МЕХАНИКА БЛОКИРОВКИ ПОЛЯ ===
-                    const inputField = document.getElementById('long_url');
-                    const submitBtn = document.getElementById('submit-btn');
-                    let retryAfter = {retry_after}; // Передается из Flask
-
-                    function activateLockdown(seconds) {{
-                        if (seconds <= 0) return;
-
-                        inputField.disabled = true;
-                        submitBtn.disabled = true;
-                        submitBtn.style.background = "#ccc";
-                        inputField.classList.add('locked');
-
-                        let remaining = seconds;
-                        const originalPlaceholder = inputField.placeholder;
-
-                        const interval = setInterval(() => {{
-                            if (remaining <= 0) {{
-                                clearInterval(interval);
-                                inputField.disabled = false;
-                                submitBtn.disabled = false;
-                                submitBtn.style.background = "#0066ff";
-                                inputField.classList.remove('locked');
-                                inputField.placeholder = originalPlaceholder;
-                                inputField.value = "";
-                            }} else {{
-                                inputField.value = ""; // Очищаем поле от текста
-                                inputField.placeholder = "Слишком много запросов! Подождите " + remaining + " сек.";
-                                remaining--;
-                            }}
-                        }}, 1000);
-                    }}
-
-                    if (retryAfter > 0) {{
-                        activateLockdown(retryAfter);
-                    }}
-
-                    setInterval(refreshList, 3000);
-                    setInterval(updateCountdowns, 1000);
-
-                    refreshList();
-                    updateCountdowns();
-                </script>
-            </body>
-            </html>
-        """
+    return render_template(
+        'index.html',
+        error_html=error_html,
+        retry_after=retry_after,
+        links_html=links_html,
+        links_count=len(all_links),
+    )
 
 # ====================== API — полный актуальный список ======================
 @app.route('/api/links')
