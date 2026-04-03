@@ -72,7 +72,7 @@ To make your links accessible from the internet, you need to use **ngrok** to cr
    Activate autotoken in project terminal (in Windows):
 
    ```bash
-   .\ngrok.exe authtoken YOUR_AUTHTOKEN_HERE
+   ./ngrok.exe authtoken YOUR_AUTHTOKEN_HERE
    ```
 
 2. Launch ngrok:
@@ -81,11 +81,6 @@ To make your links accessible from the internet, you need to use **ngrok** to cr
    ```
 3. Copy the received Forwarding address.
 4. In the file `redis_link_shortening.py` replace the value of the `NGROK_DOMAIN` variable with your current domain.
-
-My launch example (with a reserved domain):
-   ```bash
-   .\ngrok.exe http --domain robert-unpenetrated-kittenishly.ngrok-free.dev 5000
-   ```
 
 ### 4. Launching the app
 ```bash
