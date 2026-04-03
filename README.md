@@ -69,7 +69,7 @@ To make your links accessible from the internet, you need to use **ngrok** to cr
 2. Get and activate your Authtoken:
    * [Authtoken](https://dashboard.ngrok.com/get-started/your-authtoken)
   
-   Activate autotoken in project VS Code terminal:
+   Activate autotoken in project terminal (in Windows):
 
    ```bash
    .\ngrok.exe authtoken YOUR_AUTHTOKEN_HERE
