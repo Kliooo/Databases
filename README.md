@@ -29,26 +29,34 @@ cd Databases
 
 ### 2. Environment preparation
 Python 3.x must be installed and the Redis server is running (port 6379 by default).
-You can use wsl for this.:
+The best option is to use **WSL** for this:
 
-Install the necessary dependencies:
+Install the necessary dependencies (in Windows):
 ```bash
 pip install flask redis
 ```
+Install the necessary dependencies (in WSL):
+```bash
+sudo apt install redis-server
+```
 
-1. Starting the server:
+1. Starting the server (in WSL):
    ```bash
    sudo service redis-server start
    ```
    
-2. Checking the server operation:
+2. Checking the server operation (in WSL):
    ```bash
    ss -tulpn | grep 6379
    ```
 
-3. Stopping the server:
+3. Stopping the server (in WSL):
    ```bash
-   sudo service redis-server start
+   sudo service redis-server stop
+   ```
+4. I recommend disabling server autorun when opening WSL:
+   ```bash
+   sudo systemctl disable redis-server
    ```
 
 ### 3. Configuring External Access (ngrok)
@@ -57,13 +65,22 @@ To make your links accessible from the internet, you need to use **ngrok** to cr
 1. Download ngrok for your OS:
    * [Official ngrok Download](https://ngrok.com/download)
    * Unpack the archive and place `ngrok.exe` in the project directory.
+  
+2. Get and activate your Authtoken:
+   * [Authtoken](https://dashboard.ngrok.com/get-started/your-authtoken)
+  
+   Activate autotoken in project VS Code terminal:
+
+   ```bash
+   .\ngrok.exe authtoken YOUR_AUTHTOKEN_HERE
+   ```
 
 2. Launch ngrok:
    ```bash
    ./ngrok.exe http 5000
    ```
-2. Copy the received Forwarding address.
-3. In the file `redis_link_shortening.py` replace the value of the `NGROK_DOMAIN` variable with your current domain.
+3. Copy the received Forwarding address.
+4. In the file `redis_link_shortening.py` replace the value of the `NGROK_DOMAIN` variable with your current domain.
 
 My launch example (with a reserved domain):
    ```bash
