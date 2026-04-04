@@ -1,27 +1,113 @@
 from flask import Flask, request, redirect, jsonify, render_template
 from urllib.parse import urlparse
+from urllib.request import urlopen
+from urllib.error import URLError
 import redis
 import random
 import string
 import time
 from html import escape
+import os
+import subprocess
+import json
+import sys
 
 app = Flask(__name__)
 
 r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 
 NGROK_DOMAIN = "robert-unpenetrated-kittenishly.ngrok-free.dev"   # ←←← ПОМЕНЯЙ НА СВОЙ
-BASE_URL = f"https://{NGROK_DOMAIN}"
+NGROK_EXECUTABLE = r".\ngrok.exe"
+LOCAL_BASE_URL = "http://127.0.0.1:5000"
+NGROK_BASE_URL = f"https://{NGROK_DOMAIN}"
 
-print("Механизм сокращения ссылок — Day 1 Redis (TTL + Max Visits)")
-print(f"Публичный адрес: {BASE_URL}\n")
+# По умолчанию используем локальный адрес, чтобы импорт файла не блокировался.
+BASE_URL = LOCAL_BASE_URL
+_NGROK_PROCESS = None
+
+
+def _get_ngrok_public_url(timeout_sec: int = 20) -> str | None:
+    """Пытается прочитать публичный URL из локального API ngrok."""
+    deadline = time.time() + timeout_sec
+    api_url = "http://127.0.0.1:4040/api/tunnels"
+
+    while time.time() < deadline:
+        try:
+            with urlopen(api_url, timeout=2) as response:
+                data = json.loads(response.read().decode("utf-8"))
+
+            for tunnel in data.get("tunnels", []):
+                public_url = tunnel.get("public_url", "")
+                if public_url.startswith("https://"):
+                    return public_url.rstrip("/")
+        except Exception:
+            pass
+
+        time.sleep(1)
+
+    return None
+
+
+def start_ngrok_tunnel(port: int = 5000) -> str:
+    """Запускает ngrok.exe http <port> и возвращает публичный URL."""
+    global _NGROK_PROCESS
+
+    if _NGROK_PROCESS and _NGROK_PROCESS.poll() is None:
+        public_url = _get_ngrok_public_url(timeout_sec=5)
+        return public_url or NGROK_BASE_URL
+
+    if not os.path.exists(NGROK_EXECUTABLE):
+        print(f"[WARN] Не найден {NGROK_EXECUTABLE}. Использую запасной URL: {NGROK_BASE_URL}")
+        return NGROK_BASE_URL
+
+    creationflags = 0
+    if os.name == "nt":
+        creationflags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+
+    try:
+        _NGROK_PROCESS = subprocess.Popen(
+            [NGROK_EXECUTABLE, "http", str(port)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=creationflags,
+        )
+    except Exception as exc:
+        print(f"[WARN] Не удалось запустить ngrok: {exc}")
+        return NGROK_BASE_URL
+
+    public_url = _get_ngrok_public_url(timeout_sec=20)
+    if public_url:
+        return public_url
+
+    print(f"[WARN] ngrok запущен, но публичный URL не найден. Использую запасной: {NGROK_BASE_URL}")
+    return NGROK_BASE_URL
+
+
+def choose_base_url() -> str:
+    print("Механизм сокращения ссылок — Day 1 Redis (TTL + Max Visits)")
+    print("Выберите режим запуска:")
+    print("  1 — локально (http://127.0.0.1:5000)")
+    print("  2 — через ngrok (автозапуск .\\ngrok.exe http 5000)")
+
+    while True:
+        try:
+            choice = input("Ваш выбор [1/2]: ").strip().lower()
+        except EOFError:
+            choice = "1"
+
+        if choice in ("", "1", "local", "локально"):
+            return LOCAL_BASE_URL
+        if choice in ("2", "ngrok"):
+            return start_ngrok_tunnel(5000)
+
+        print("Введите 1 для локального запуска или 2 для ngrok.")
 
 # ====================== RATE LIMITING ======================
 def check_rate_limit(ip: str):
     key = f"rate:{ip}"
     current = r.get(key)
     
-    if current and int(current) >= 5:
+    if current and int(current) >= 3:
         # Лимит превышен. Возвращаем False и оставшийся TTL ключа в секундах
         return False, r.ttl(key)
         
@@ -208,5 +294,7 @@ def delete_link(code):
     return redirect('/')
 
 if __name__ == '__main__':
+    BASE_URL = choose_base_url()
     print(f"Открывай: {BASE_URL}")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # use_reloader=False, чтобы Flask debug не запускал скрипт второй раз и не ломал ввод.
+    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
